@@ -31,6 +31,7 @@ enum Message {
     OpenEntryInput,
     AddEntry(String, String, String),
     NewInput(String, String),
+    UpdateCurrentValue,
 }
 
 pub fn main() -> iced::Result {
@@ -444,8 +445,14 @@ impl Overview {
             container(
                 column![
                     text("Portfolio"),
-                    container(button("Add Security").on_press(Message::OpenSecurityNameInput))
-                        .padding(20),
+                    row![
+                        container(button("Add Security").on_press(Message::OpenSecurityNameInput))
+                            .padding(20),
+                        container(
+                            button("Update Current Value").on_press(Message::UpdateCurrentValue)
+                        )
+                        .padding(20)
+                    ],
                     rule::horizontal(1),
                     scrollable(
                         column(self.securities.iter().map(|security| {
