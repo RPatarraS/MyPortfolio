@@ -31,7 +31,8 @@ enum Message {
     OpenEntryInput,
     AddEntry(String, String, String),
     NewInput(String, String),
-    UpdateCurrentValue,
+    OpenUpdateCurrentValue,
+    UpdateCurrentValue(f32),
 }
 
 pub fn main() -> iced::Result {
@@ -43,7 +44,7 @@ struct App {
     current_screen: Screen,
     main_menu: MainMenu,
     overview: Overview,
-    inputs_config: [Vec<(String, String)>; 2],
+    inputs_config: [Vec<(String, String)>; 3],
     current_input: Option<usize>,
     current_file_path: Option<std::path::PathBuf>,
 }
@@ -66,6 +67,7 @@ impl App {
                         ("Amount".to_string(), String::new()),
                         ("Price per Unit".to_string(), String::new()),
                     ],
+                    vec![("Current Value".to_string(), String::new())],
                 ],
                 current_input: None,
                 current_file_path: None,
@@ -172,6 +174,9 @@ impl App {
                     println!("Error in current_input");
                     self.current_screen = Screen::Error(2);
                 }
+            }
+            Message::OpenUpdateCurrentValue => {
+                self.current_input = Some(2);
             }
             _ => {}
         }
@@ -378,6 +383,17 @@ impl Overview {
                 //self.securities.get(self.open_security);
                 Screen::Overview(false)
             }
+            Message::UpdateCurrentValue(value) => {
+                if let Some(security_id) = self.open_security {
+                    if let Some(security) = self.securities.iter_mut().find(|s| s.id == security_id)
+                    {
+                        security.update_current_price(value);
+                        security.calculate_total_invested_value();
+                    }
+                }
+                //self.securities.get(self.open_security);
+                Screen::Overview(false)
+            }
             Message::Debug => {
                 println!("{:#?}", self);
                 Screen::Overview(false)
@@ -416,7 +432,15 @@ impl Overview {
                         "total value: {}",
                         security.get_total_invested_value()
                     )),
-                    button("Add Entry").on_press(Message::OpenEntryInput),
+                    row![
+                        container(button("Add Entry").on_press(Message::OpenEntryInput))
+                            .padding(20),
+                        container(
+                            button("Update Current Value")
+                                .on_press(Message::OpenUpdateCurrentValue)
+                        )
+                        .padding(20),
+                    ],
                     rule::horizontal(1),
                     row![
                         text("Action").width(Length::FillPortion(2)),
@@ -445,14 +469,8 @@ impl Overview {
             container(
                 column![
                     text("Portfolio"),
-                    row![
-                        container(button("Add Security").on_press(Message::OpenSecurityNameInput))
-                            .padding(20),
-                        container(
-                            button("Update Current Value").on_press(Message::UpdateCurrentValue)
-                        )
-                        .padding(20)
-                    ],
+                    container(button("Add Security").on_press(Message::OpenSecurityNameInput))
+                        .padding(20),
                     rule::horizontal(1),
                     scrollable(
                         column(self.securities.iter().map(|security| {
