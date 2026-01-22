@@ -32,7 +32,7 @@ enum Message {
     AddEntry(String, String, String),
     NewInput(String, String),
     OpenUpdateCurrentValue,
-    UpdateCurrentValue(f32),
+    UpdateCurrentValue(String),
 }
 
 pub fn main() -> iced::Result {
@@ -78,7 +78,6 @@ impl App {
 
     fn update(&mut self, mut message: Message) -> Task<Message> {
         println!("Message: {:#?}", message);
-        let current_screen = self.current_screen.clone();
         match &message {
             Message::SavePortfolio => {
                 // Save to current file, or open dialog if no file is set
@@ -178,6 +177,27 @@ impl App {
             Message::OpenUpdateCurrentValue => {
                 self.current_input = Some(2);
             }
+            Message::UpdateCurrentValue(_) => {
+                println!("Update current value");
+                if let Some(2) = self.current_input {
+                    // Helper function to find value by key
+                    let find_value = |key: &str| {
+                        self.inputs_config[2]
+                            .iter()
+                            .find(|(k, _)| k == key)
+                            .map(|(_, v)| v.clone())
+                            .unwrap_or_default()
+                    };
+
+                    let price = find_value("Current Value");
+
+                    self.current_input = None;
+                    message = Message::UpdateCurrentValue(price);
+                } else {
+                    println!("Error in current_input");
+                    self.current_screen = Screen::Error(2);
+                }
+            }
             _ => {}
         }
         self.current_screen = self.overview.update(message);
@@ -196,6 +216,7 @@ impl App {
                         let message = match current_input {
                             0 => Message::AddSecurity("".to_string()),
                             1 => Message::AddEntry("".to_string(), "".to_string(), "".to_string()),
+                            2 => Message::UpdateCurrentValue("".to_string()),
                             _ => Message::AddSecurity("".to_string()),
                         };
                         println!("Activate PopUp");
@@ -234,7 +255,7 @@ impl App {
         ])
         .align_x(Start)
         .align_y(Start)
-        .style(|theme: &Theme| container::Style {
+        .style(|_: &Theme| container::Style {
             text_color: None,
             background: None,
             shadow: Shadow::default(),
@@ -383,11 +404,14 @@ impl Overview {
                 //self.securities.get(self.open_security);
                 Screen::Overview(false)
             }
+            Message::OpenUpdateCurrentValue => Screen::Overview(true),
             Message::UpdateCurrentValue(value) => {
                 if let Some(security_id) = self.open_security {
                     if let Some(security) = self.securities.iter_mut().find(|s| s.id == security_id)
                     {
-                        security.update_current_price(value);
+                        security.update_current_price(
+                            value.trim().replace(',', ".").parse::<f32>().unwrap(),
+                        );
                         security.calculate_total_invested_value();
                     }
                 }
@@ -428,6 +452,10 @@ impl Overview {
                     text(format!("Security: {}", security.name)),
                     text(format!("id: {}", security.id)),
                     text(format!("quantity: {}", security.get_quantity())),
+                    text(format!(
+                        "current value per unit: {}",
+                        security.get_current_price_per_unit()
+                    )),
                     text(format!(
                         "total value: {}",
                         security.get_total_invested_value()

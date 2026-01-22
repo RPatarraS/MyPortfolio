@@ -32,6 +32,10 @@ impl Security {
     pub fn update_current_price(&mut self, price_per_unit: f32) {
         self.current_price_per_unit = price_per_unit;
     }
+
+    pub fn get_current_price_per_unit(&self) -> f32 {
+        self.current_price_per_unit
+    }
     pub fn get_quantity(&self) -> u8 {
         self.quantity
     }
