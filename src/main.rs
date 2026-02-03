@@ -352,6 +352,7 @@ struct Overview {
     securities: Vec<security::Security>,
     open_security: Option<u8>,
     last_security_id: u8,
+    total_invested: f32,
 }
 
 impl Overview {
@@ -360,10 +361,12 @@ impl Overview {
             securities: Vec::new(),
             open_security: None,
             last_security_id: 0,
+            total_invested: 0.0,
         }
     }
 
     fn update(&mut self, message: Message) -> Screen {
+        self.calculate_total_investment();
         match message {
             Message::NewPortfolio => Screen::Overview(false),
             Message::LoadPortfolio => Screen::Overview(false),
@@ -399,6 +402,7 @@ impl Overview {
                             price.trim().replace(',', ".").parse::<f32>().unwrap(),
                         );
                         security.calculate_total_invested_value();
+                        security.calculate_total_current_value();
                     }
                 }
                 //self.securities.get(self.open_security);
@@ -412,7 +416,7 @@ impl Overview {
                         security.update_current_price(
                             value.trim().replace(',', ".").parse::<f32>().unwrap(),
                         );
-                        security.calculate_total_invested_value();
+                        security.calculate_total_current_value();
                     }
                 }
                 //self.securities.get(self.open_security);
@@ -422,7 +426,10 @@ impl Overview {
                 println!("{:#?}", self);
                 Screen::Overview(false)
             }
-            _ => Screen::Error(1),
+            _ => {
+                println!("{:#?}", self);
+                Screen::Error(1)
+            }
         }
     }
 
@@ -457,8 +464,12 @@ impl Overview {
                         security.get_current_price_per_unit()
                     )),
                     text(format!(
-                        "total value: {}",
+                        "total invested value: {}",
                         security.get_total_invested_value()
+                    )),
+                    text(format!(
+                        "total current value: {}",
+                        security.get_total_current_value()
                     )),
                     row![
                         container(button("Add Entry").on_press(Message::OpenEntryInput))
@@ -497,6 +508,7 @@ impl Overview {
             container(
                 column![
                     text("Portfolio"),
+                    text(format!("Total Invested: {}", self.total_invested)),
                     container(button("Add Security").on_press(Message::OpenSecurityNameInput))
                         .padding(20),
                     rule::horizontal(1),
@@ -522,5 +534,12 @@ impl Overview {
             security_details_container
         ]
         .into()
+    }
+
+    fn calculate_total_investment(&mut self) {
+        self.total_invested = 0.0;
+        for security in self.securities.iter() {
+            self.total_invested += security.get_total_invested_value();
+        }
     }
 }
