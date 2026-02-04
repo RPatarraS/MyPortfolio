@@ -7,7 +7,7 @@ pub struct Security {
     entries: Vec<Entry>,
     current_price_per_unit: f32,
     current_total_invested_value: f32,
-    current_total_current_value: f32,
+    current_total_value: f32,
 }
 
 impl Security {
@@ -19,7 +19,7 @@ impl Security {
             entries: Vec::new(),
             current_price_per_unit: 0.0,
             current_total_invested_value: 0.0,
-            current_total_current_value: 0.0,
+            current_total_value: 0.0,
         }
     }
 
@@ -31,6 +31,10 @@ impl Security {
 
     pub fn update_current_price(&mut self, price_per_unit: f32) {
         self.current_price_per_unit = price_per_unit;
+    }
+
+    pub fn get_current_price_per_unit(&self) -> f32 {
+        self.current_price_per_unit
     }
     pub fn get_quantity(&self) -> u8 {
         self.quantity
@@ -55,11 +59,11 @@ impl Security {
     }
 
     pub fn get_total_current_value(&self) -> f32 {
-        self.current_total_current_value
+        self.current_total_value
     }
 
     pub fn calculate_total_current_value(&mut self) {
-        self.current_total_current_value = self.current_price_per_unit * self.quantity as f32;
+        self.current_total_value = self.current_price_per_unit * self.quantity as f32;
     }
 }
 

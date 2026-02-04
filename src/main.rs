@@ -31,6 +31,8 @@ enum Message {
     OpenEntryInput,
     AddEntry(String, String, String),
     NewInput(String, String),
+    OpenUpdateCurrentValue,
+    UpdateCurrentValue(String),
 }
 
 pub fn main() -> iced::Result {
@@ -42,7 +44,7 @@ struct App {
     current_screen: Screen,
     main_menu: MainMenu,
     overview: Overview,
-    inputs_config: [Vec<(String, String)>; 2],
+    inputs_config: [Vec<(String, String)>; 3],
     current_input: Option<usize>,
     current_file_path: Option<std::path::PathBuf>,
 }
@@ -65,6 +67,7 @@ impl App {
                         ("Amount".to_string(), String::new()),
                         ("Price per Unit".to_string(), String::new()),
                     ],
+                    vec![("Current Value".to_string(), String::new())],
                 ],
                 current_input: None,
                 current_file_path: None,
@@ -75,7 +78,6 @@ impl App {
 
     fn update(&mut self, mut message: Message) -> Task<Message> {
         println!("Message: {:#?}", message);
-        let current_screen = self.current_screen.clone();
         match &message {
             Message::SavePortfolio => {
                 // Save to current file, or open dialog if no file is set
@@ -172,6 +174,30 @@ impl App {
                     self.current_screen = Screen::Error(2);
                 }
             }
+            Message::OpenUpdateCurrentValue => {
+                self.current_input = Some(2);
+            }
+            Message::UpdateCurrentValue(_) => {
+                println!("Update current value");
+                if let Some(2) = self.current_input {
+                    // Helper function to find value by key
+                    let find_value = |key: &str| {
+                        self.inputs_config[2]
+                            .iter()
+                            .find(|(k, _)| k == key)
+                            .map(|(_, v)| v.clone())
+                            .unwrap_or_default()
+                    };
+
+                    let price = find_value("Current Value");
+
+                    self.current_input = None;
+                    message = Message::UpdateCurrentValue(price);
+                } else {
+                    println!("Error in current_input");
+                    self.current_screen = Screen::Error(2);
+                }
+            }
             _ => {}
         }
         self.current_screen = self.overview.update(message);
@@ -190,6 +216,7 @@ impl App {
                         let message = match current_input {
                             0 => Message::AddSecurity("".to_string()),
                             1 => Message::AddEntry("".to_string(), "".to_string(), "".to_string()),
+                            2 => Message::UpdateCurrentValue("".to_string()),
                             _ => Message::AddSecurity("".to_string()),
                         };
                         println!("Activate PopUp");
@@ -228,7 +255,7 @@ impl App {
         ])
         .align_x(Start)
         .align_y(Start)
-        .style(|theme: &Theme| container::Style {
+        .style(|_: &Theme| container::Style {
             text_color: None,
             background: None,
             shadow: Shadow::default(),
@@ -325,6 +352,7 @@ struct Overview {
     securities: Vec<security::Security>,
     open_security: Option<u8>,
     last_security_id: u8,
+    total_invested: f32,
 }
 
 impl Overview {
@@ -333,10 +361,12 @@ impl Overview {
             securities: Vec::new(),
             open_security: None,
             last_security_id: 0,
+            total_invested: 0.0,
         }
     }
 
     fn update(&mut self, message: Message) -> Screen {
+        self.calculate_total_investment();
         match message {
             Message::NewPortfolio => Screen::Overview(false),
             Message::LoadPortfolio => Screen::Overview(false),
@@ -372,6 +402,21 @@ impl Overview {
                             price.trim().replace(',', ".").parse::<f32>().unwrap(),
                         );
                         security.calculate_total_invested_value();
+                        security.calculate_total_current_value();
+                    }
+                }
+                //self.securities.get(self.open_security);
+                Screen::Overview(false)
+            }
+            Message::OpenUpdateCurrentValue => Screen::Overview(true),
+            Message::UpdateCurrentValue(value) => {
+                if let Some(security_id) = self.open_security {
+                    if let Some(security) = self.securities.iter_mut().find(|s| s.id == security_id)
+                    {
+                        security.update_current_price(
+                            value.trim().replace(',', ".").parse::<f32>().unwrap(),
+                        );
+                        security.calculate_total_current_value();
                     }
                 }
                 //self.securities.get(self.open_security);
@@ -381,7 +426,10 @@ impl Overview {
                 println!("{:#?}", self);
                 Screen::Overview(false)
             }
-            _ => Screen::Error(1),
+            _ => {
+                println!("{:#?}", self);
+                Screen::Error(1)
+            }
         }
     }
 
@@ -412,10 +460,26 @@ impl Overview {
                     text(format!("id: {}", security.id)),
                     text(format!("quantity: {}", security.get_quantity())),
                     text(format!(
-                        "total value: {}",
+                        "current value per unit: {}",
+                        security.get_current_price_per_unit()
+                    )),
+                    text(format!(
+                        "total invested value: {}",
                         security.get_total_invested_value()
                     )),
-                    button("Add Entry").on_press(Message::OpenEntryInput),
+                    text(format!(
+                        "total current value: {}",
+                        security.get_total_current_value()
+                    )),
+                    row![
+                        container(button("Add Entry").on_press(Message::OpenEntryInput))
+                            .padding(20),
+                        container(
+                            button("Update Current Value")
+                                .on_press(Message::OpenUpdateCurrentValue)
+                        )
+                        .padding(20),
+                    ],
                     rule::horizontal(1),
                     row![
                         text("Action").width(Length::FillPortion(2)),
@@ -444,6 +508,7 @@ impl Overview {
             container(
                 column![
                     text("Portfolio"),
+                    text(format!("Total Invested: {}", self.total_invested)),
                     container(button("Add Security").on_press(Message::OpenSecurityNameInput))
                         .padding(20),
                     rule::horizontal(1),
@@ -469,5 +534,12 @@ impl Overview {
             security_details_container
         ]
         .into()
+    }
+
+    fn calculate_total_investment(&mut self) {
+        self.total_invested = 0.0;
+        for security in self.securities.iter() {
+            self.total_invested += security.get_total_invested_value();
+        }
     }
 }
