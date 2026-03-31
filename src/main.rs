@@ -371,6 +371,7 @@ impl Overview {
             Message::NewPortfolio => Screen::Overview(false),
             Message::LoadPortfolio => Screen::Overview(false),
             Message::SavePortfolio => Screen::Overview(false),
+            Message::SavePortfolioAs => Screen::Overview(false),
             Message::Settings => Screen::Settings,
             Message::OpenSecurityNameInput => Screen::Overview(true),
             Message::AddSecurity(security_name) => {
